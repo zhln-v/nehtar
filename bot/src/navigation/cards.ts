@@ -15,6 +15,7 @@ export {
   renderRenewCheckoutScreen,
   renderRenewTariffScreen,
   renderRenewTermsScreen,
+  renderSubscriptionDeviceDeleteConfirmScreen,
   renderSubscriptionDeviceScreen,
   renderSubscriptionDevicePurchaseScreen,
   renderSubscriptionDevicesScreen,

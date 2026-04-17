@@ -239,6 +239,7 @@ export function renderSubscriptionDeviceScreen(
 
   keyboard
     .text({ text: "🔄 Обновить", style: "primary" }, `mysub:device:${subscription.id}:${deviceIndex}`)
+    .text({ text: "🗑 Удалить", style: "danger" }, `mysub:device_delete_confirm:${subscription.id}:${deviceIndex}`)
     .row()
     .text({ text: BACK_BUTTON_TEXT, style: "danger" }, `mysub:devices:${subscription.id}`);
 
@@ -264,6 +265,38 @@ export function renderSubscriptionDeviceScreen(
       ],
     }),
     replyMarkup: keyboard,
+  };
+}
+
+export function renderSubscriptionDeviceDeleteConfirmScreen(
+  subscription: UserRemnawaveAccount,
+  device: RemnawaveHwidDevice,
+  deviceIndex: number,
+): RenderedScreen {
+  const deviceTitle =
+    device.deviceModel ?? device.platform ?? `Устройство ${deviceIndex}`;
+
+  return {
+    text: renderScreenLayout("🗑 Удалить устройство", {
+      summary: [
+        renderPlainLine("Устройство", deviceTitle),
+        renderCodeLine("Слот", deviceIndex),
+        renderCodeLine("HWID", device.hwid),
+      ],
+      sections: [
+        renderSection("⚠️ Подтверждение", [
+          "Будет удалено только выбранное устройство.",
+          "После удаления его нужно будет подключить заново.",
+        ]),
+      ],
+      nextStep: [
+        "Подтверди удаление, если хочешь отвязать именно это устройство.",
+      ],
+    }),
+    replyMarkup: new InlineKeyboard()
+      .text({ text: "Да, удалить", style: "danger" }, `mysub:device_delete_apply:${subscription.id}:${deviceIndex}`)
+      .row()
+      .text({ text: BACK_BUTTON_TEXT, style: "primary" }, `mysub:device:${subscription.id}:${deviceIndex}`),
   };
 }
 

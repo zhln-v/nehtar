@@ -16,6 +16,7 @@ import {
   renderPurchaseCheckoutScreen,
   renderPurchaseTariffScreen,
   renderPurchaseTermsScreen,
+  renderSubscriptionDeviceDeleteConfirmScreen,
   renderSubscriptionDeviceScreen,
   renderSubscriptionDevicePurchaseScreen,
   renderSubscriptionDevicesScreen,
@@ -47,6 +48,7 @@ import { getUserReferralRewardById } from "../../services/referral-service.js";
 import {
   getUserRemnawaveAccountById,
   getRemnawaveUserDeviceState,
+  removeRemnawaveUserDevice,
   provisionPurchaseOrderToRemnawave,
 } from "../../services/remnawave-users-service.js";
 import { getActiveTariffById } from "../../services/tariff-service.js";
@@ -1347,6 +1349,115 @@ export function registerPurchaseHandlers(bot: Bot) {
       text: subscription.subscriptionUrl
         ? `Открой ссылку подключения и привяжи устройство в слот ${ctx.match[2]}`
         : "Ссылка подключения пока недоступна",
+      show_alert: false,
+    });
+  });
+
+  bot.callbackQuery(/^mysub:device_delete_confirm:(\d+):(\d+)$/, async (ctx) => {
+    const user = await getTelegramUserByTelegramId(BigInt(ctx.from.id));
+
+    if (!user) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Пользователь не найден",
+        show_alert: false,
+      });
+      return;
+    }
+
+    const subscription = await getUserRemnawaveAccountById(
+      user.id,
+      Number(ctx.match[1]),
+    );
+
+    if (!subscription) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Подписка не найдена",
+        show_alert: false,
+      });
+      return;
+    }
+
+    const deviceState = await getRemnawaveUserDeviceState(subscription.remnawaveUuid);
+    const deviceIndex = Number(ctx.match[2]);
+    const device = deviceState.devices[deviceIndex - 1];
+
+    if (!device || deviceIndex > deviceState.deviceLimit) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Устройство не найдено",
+        show_alert: false,
+      });
+      return;
+    }
+
+    await showRenderedScreenFromCallback(
+      ctx,
+      renderSubscriptionDeviceDeleteConfirmScreen(subscription, device, deviceIndex),
+    );
+    await safeAnswerCallbackQuery(ctx);
+  });
+
+  bot.callbackQuery(/^mysub:device_delete_apply:(\d+):(\d+)$/, async (ctx) => {
+    const user = await getTelegramUserByTelegramId(BigInt(ctx.from.id));
+
+    if (!user) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Пользователь не найден",
+        show_alert: false,
+      });
+      return;
+    }
+
+    const subscription = await getUserRemnawaveAccountById(
+      user.id,
+      Number(ctx.match[1]),
+    );
+
+    if (!subscription) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Подписка не найдена",
+        show_alert: false,
+      });
+      return;
+    }
+
+    const deviceState = await getRemnawaveUserDeviceState(subscription.remnawaveUuid);
+    const deviceIndex = Number(ctx.match[2]);
+    const device = deviceState.devices[deviceIndex - 1];
+
+    if (!device || deviceIndex > deviceState.deviceLimit) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Устройство не найдено",
+        show_alert: false,
+      });
+      return;
+    }
+
+    try {
+      await removeRemnawaveUserDevice({
+        userUuid: subscription.remnawaveUuid,
+        hwid: device.hwid,
+      });
+    } catch (error) {
+      console.error("Не удалось удалить устройство Remnawave", error);
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Не удалось удалить устройство",
+        show_alert: true,
+      });
+      return;
+    }
+
+    const refreshedDeviceState = await getRemnawaveUserDeviceState(subscription.remnawaveUuid);
+
+    await showRenderedScreenFromCallback(
+      ctx,
+      renderSubscriptionDevicesScreen(
+        subscription,
+        refreshedDeviceState.devices,
+        refreshedDeviceState.deviceLimit,
+      ),
+    );
+    await safeAnswerCallbackQuery(ctx, {
+      text: "Устройство удалено",
       show_alert: false,
     });
   });

@@ -164,6 +164,18 @@ async function fetchRemnawaveUserHwidDevices(userUuid: string) {
   return parseRemnawaveUserHwidDevices(await response.json());
 }
 
+async function deleteRemnawaveUserHwidDevice(payload: {
+  userUuid: string;
+  hwid: string;
+}) {
+  const { requestUrl, init } = buildRemnawaveRequest("/api/hwid/devices/delete", "POST", payload);
+  const response = await fetch(requestUrl, init);
+
+  if (!response.ok) {
+    throw new Error(`Remnawave user HWID device delete failed: ${response.status}`);
+  }
+}
+
 async function createRemnawaveUser(payload: {
   uuid: string;
   username: string;
@@ -608,6 +620,13 @@ export async function getRemnawaveUserDeviceState(remnawaveUuid: string) {
     devices: hwidDevices.devices,
     total: hwidDevices.total,
   };
+}
+
+export async function removeRemnawaveUserDevice(payload: {
+  userUuid: string;
+  hwid: string;
+}) {
+  await deleteRemnawaveUserHwidDevice(payload);
 }
 
 export async function syncRemnawaveUserQuotaState(accountId: number) {
