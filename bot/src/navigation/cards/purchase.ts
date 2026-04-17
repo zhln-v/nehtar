@@ -188,22 +188,6 @@ export function renderSubscriptionDevicesScreen(
   deviceLimit: number,
 ): RenderedScreen {
   const connectedDevices = devices.slice(0, deviceLimit);
-  const deviceLines =
-    connectedDevices.length > 0
-      ? connectedDevices.map((device, index) => {
-          const deviceTitle =
-            device.deviceModel ?? device.platform ?? `Устройство ${index + 1}`;
-          const platform =
-            [device.platform, device.osVersion].filter(Boolean).join(" ") || "не определена";
-
-          return [
-            `${index + 1}. ${deviceTitle}`,
-            renderPlainLine("Платформа", platform),
-            renderCodeLine("HWID", device.hwid),
-            renderCodeLine("Добавлено", renderDate(device.createdAt)),
-          ].join("\n");
-        })
-      : ["• Пока не подключено ни одного устройства."];
 
   return {
     text: renderScreenLayout("📱 Устройства подписки", {
@@ -211,10 +195,9 @@ export function renderSubscriptionDevicesScreen(
         renderCodeLine("Подключено", `${connectedDevices.length} из ${deviceLimit}`),
       ],
       nextStep: [
-        "Ниже можно открыть слот устройства или подключить новое устройство в свободный слот.",
-      ],
-      sections: [
-        renderSection("✅ Активные устройства", deviceLines),
+        connectedDevices.length > 0
+          ? "Ниже можно открыть нужное устройство или подключить новое в свободный слот."
+          : "Пока нет подключенных устройств. Можно занять свободный слот ниже.",
       ],
     }),
     replyMarkup: buildSubscriptionDevicesKeyboard(subscription, connectedDevices, deviceLimit),
@@ -238,7 +221,6 @@ export function renderSubscriptionDeviceScreen(
   }
 
   keyboard
-    .text({ text: "🔄 Обновить", style: "primary" }, `mysub:device:${subscription.id}:${deviceIndex}`)
     .text({ text: "🗑 Удалить", style: "danger" }, `mysub:device_delete_confirm:${subscription.id}:${deviceIndex}`)
     .row()
     .text({ text: BACK_BUTTON_TEXT, style: "danger" }, `mysub:devices:${subscription.id}`);
