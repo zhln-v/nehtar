@@ -231,6 +231,17 @@ export function renderSubscriptionDeviceScreen(
   const platform =
     [device.platform, device.osVersion].filter(Boolean).join(" ") || "не определена";
 
+  const keyboard = new InlineKeyboard();
+
+  if (subscription.subscriptionUrl) {
+    keyboard.url("🔗 Открыть подключение", subscription.subscriptionUrl).row();
+  }
+
+  keyboard
+    .text({ text: "🔄 Обновить", style: "primary" }, `mysub:device:${subscription.id}:${deviceIndex}`)
+    .row()
+    .text({ text: BACK_BUTTON_TEXT, style: "danger" }, `mysub:devices:${subscription.id}`);
+
   return {
     text: renderScreenLayout(`📱 ${deviceTitle}`, {
       summary: [
@@ -252,8 +263,7 @@ export function renderSubscriptionDeviceScreen(
         "Вернись назад, чтобы открыть другой слот устройства или подключить новое устройство.",
       ],
     }),
-    replyMarkup: new InlineKeyboard()
-      .text({ text: BACK_BUTTON_TEXT, style: "danger" }, `mysub:devices:${subscription.id}`),
+    replyMarkup: keyboard,
   };
 }
 
