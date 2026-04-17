@@ -46,6 +46,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare temporary env files
+        run: |
+          cp bot/.env.example bot/.env
+          cp remnawave/.env.example remnawave/.env
+          cp remnawave/subscription/.env.example remnawave/subscription/.env
+
       - name: Validate docker compose
         run: docker compose config
-
