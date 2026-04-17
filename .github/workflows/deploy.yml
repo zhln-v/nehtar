@@ -1,0 +1,79 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install sshpass and rsync
+        run: sudo apt-get update && sudo apt-get install -y sshpass rsync
+
+      - name: Sync project to server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_PORT"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_PASSWORD"
+          test -n "$DEPLOY_PATH"
+
+          sshpass -p "$DEPLOY_PASSWORD" ssh -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
+
+          sshpass -p "$DEPLOY_PASSWORD" rsync -az --delete \
+            --exclude ".git" \
+            --exclude "bot/.env" \
+            --exclude "remnawave/.env" \
+            --exclude "remnawave/subscription/.env" \
+            -e "ssh -p $DEPLOY_PORT -o StrictHostKeyChecking=no" \
+            ./ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+
+      - name: Upload env files
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          BOT_ENV_FILE: ${{ secrets.BOT_ENV_FILE }}
+          REMNAWAVE_ENV_FILE: ${{ secrets.REMNAWAVE_ENV_FILE }}
+          REMNAWAVE_SUBSCRIPTION_ENV_FILE: ${{ secrets.REMNAWAVE_SUBSCRIPTION_ENV_FILE }}
+        run: |
+          test -n "$BOT_ENV_FILE"
+          test -n "$REMNAWAVE_ENV_FILE"
+          test -n "$REMNAWAVE_SUBSCRIPTION_ENV_FILE"
+
+          sshpass -p "$DEPLOY_PASSWORD" ssh -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH/bot' '$DEPLOY_PATH/remnawave/subscription'"
+
+          printf '%s' "$BOT_ENV_FILE" | sshpass -p "$DEPLOY_PASSWORD" ssh -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" "cat > '$DEPLOY_PATH/bot/.env'"
+          printf '%s' "$REMNAWAVE_ENV_FILE" | sshpass -p "$DEPLOY_PASSWORD" ssh -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" "cat > '$DEPLOY_PATH/remnawave/.env'"
+          printf '%s' "$REMNAWAVE_SUBSCRIPTION_ENV_FILE" | sshpass -p "$DEPLOY_PASSWORD" ssh -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" "cat > '$DEPLOY_PATH/remnawave/subscription/.env'"
+
+      - name: Deploy on server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          sshpass -p "$DEPLOY_PASSWORD" ssh -p "$DEPLOY_PORT" -o StrictHostKeyChecking=no "$DEPLOY_USER@$DEPLOY_HOST" "
+            cd '$DEPLOY_PATH' &&
+            docker compose pull caddy remnawave remnawave-db remnawave-redis remnawave-subscription-page &&
+            docker compose up -d --build --remove-orphans
+          "

@@ -1,0 +1,253 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+  output     = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TrafficUnit {
+  MB
+  GB
+  TB
+}
+
+enum PaymentProvider {
+  BALANCE
+  STARS
+  YOOKASSA
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELED
+  FAILED
+}
+
+model TelegramUser {
+  id                    Int              @id @default(autoincrement())
+  telegramId            BigInt           @unique
+  username              String?
+  firstName             String
+  lastName              String?
+  languageCode          String?
+  isBot                 Boolean          @default(false)
+  balanceMinor          Int              @default(0)
+  referralCode          String           @unique @default(dbgenerated("substr(md5((random()::text || clock_timestamp()::text)), 1, 16)"))
+  referredByUserId      Int?
+  referredAt            DateTime?
+  privateChatId         BigInt?
+  lastMenuMessageId     Int?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  referredBy            TelegramUser?    @relation("TelegramUserReferrals", fields: [referredByUserId], references: [id], onDelete: SetNull)
+  referrals             TelegramUser[]   @relation("TelegramUserReferrals")
+  purchaseOrders        PurchaseOrder[]
+  balanceTopUpOrders    BalanceTopUpOrder[]
+  remnawaveAccounts     RemnawaveUserAccount[]
+  referralRewardsGiven  ReferralReward[] @relation("ReferralRewardReferrer")
+  referralRewardsEarned ReferralReward[] @relation("ReferralRewardInvitee")
+}
+
+model BillingSettings {
+  id                           Int      @id @default(1)
+  currencyCode                 String   @default("RUB")
+  freeDevicesPerUser           Int      @default(1)
+  paidDeviceDailyPriceMinor    Int      @default(1500)
+  trafficBillingEnabled        Boolean  @default(false)
+  trafficPricePerGbMinor       Int      @default(500)
+  referralProgramEnabled       Boolean  @default(false)
+  referralTopUpRewardPercent   Int      @default(10)
+  referralTermsText            String?
+  freeSquadName                String   @default("free")
+  paidSquadName                String   @default("paid")
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+}
+
+model RemnawaveInternalSquad {
+  uuid                   String        @id @db.Uuid
+  name                   String
+  displayName            String?
+  viewPosition           Int
+  membersCount           Int           @default(0)
+  inboundsCount          Int           @default(0)
+  deviceDailyPriceMinor  Int           @default(0)
+  trafficPricePerGbMinor Int           @default(0)
+  trafficPriceUnit       TrafficUnit   @default(GB)
+  syncedAt               DateTime
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  tariffSquads           TariffSquad[]
+  userSquadQuotas        UserSquadQuota[]
+}
+
+model AdminInputSession {
+  id           Int      @id @default(autoincrement())
+  telegramId   BigInt   @unique
+  kind         String
+  textValue    String?
+  squadUuid    String?  @db.Uuid
+  tariffId     Int?
+  tariffSquadId Int?
+  tariffPeriodId Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model UserInputSession {
+  id         Int      @id @default(autoincrement())
+  telegramId BigInt   @unique
+  kind       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Tariff {
+  id                     Int          @id @default(autoincrement())
+  name                   String       @unique
+  description            String?
+  usageTerms             String?
+  currencyCode           String       @default("RUB")
+  dailyPriceMinor        Int          @default(0)
+  freeDevicesPerUser     Int          @default(1)
+  deviceDailyPriceMinor  Int          @default(0)
+  isActive               Boolean      @default(true)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  squads                 TariffSquad[]
+  periods                TariffPeriod[]
+  purchaseOrders         PurchaseOrder[]
+}
+
+model TariffPeriod {
+  id              Int      @id @default(autoincrement())
+  tariffId        Int
+  durationDays    Int
+  discountPercent Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tariff          Tariff   @relation(fields: [tariffId], references: [id], onDelete: Cascade)
+  purchaseOrders  PurchaseOrder[]
+
+  @@unique([tariffId, durationDays])
+}
+
+model PurchaseOrder {
+  id                       String          @id @default(cuid())
+  telegramUserId           Int
+  tariffId                 Int
+  tariffPeriodId           Int
+  provider                 PaymentProvider
+  status                   PaymentStatus   @default(PENDING)
+  extraDeviceCount         Int             @default(0)
+  durationDays             Int
+  basePriceMinor           Int
+  extraDevicesPriceMinor   Int             @default(0)
+  totalPriceMinor          Int
+  totalPriceStars          Int?
+  currencyCode             String          @default("RUB")
+  invoicePayload           String?         @unique
+  telegramChargeId         String?         @unique
+  providerPaymentId        String?         @unique
+  providerConfirmationUrl  String?
+  metadataJson             String?
+  remnawaveAccount         RemnawaveUserAccount?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  telegramUser             TelegramUser    @relation(fields: [telegramUserId], references: [id], onDelete: Cascade)
+  tariff                   Tariff          @relation(fields: [tariffId], references: [id], onDelete: Restrict)
+  tariffPeriod             TariffPeriod    @relation(fields: [tariffPeriodId], references: [id], onDelete: Restrict)
+  squadQuotas              UserSquadQuota[]
+}
+
+model BalanceTopUpOrder {
+  id                       String          @id @default(cuid())
+  telegramUserId           Int
+  provider                 PaymentProvider
+  status                   PaymentStatus   @default(PENDING)
+  amountMinor              Int
+  amountStars              Int?
+  currencyCode             String          @default("RUB")
+  invoicePayload           String?         @unique
+  telegramChargeId         String?         @unique
+  providerPaymentId        String?         @unique
+  providerConfirmationUrl  String?
+  metadataJson             String?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  telegramUser             TelegramUser    @relation(fields: [telegramUserId], references: [id], onDelete: Cascade)
+  referralReward           ReferralReward?
+}
+
+model ReferralReward {
+  id                Int             @id @default(autoincrement())
+  referrerUserId    Int
+  referredUserId    Int
+  balanceTopUpOrderId String        @unique
+  rewardPercent     Int
+  topUpAmountMinor  Int
+  rewardAmountMinor Int
+  createdAt         DateTime        @default(now())
+  referrerUser      TelegramUser    @relation("ReferralRewardReferrer", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referredUser      TelegramUser    @relation("ReferralRewardInvitee", fields: [referredUserId], references: [id], onDelete: Cascade)
+  balanceTopUpOrder BalanceTopUpOrder @relation(fields: [balanceTopUpOrderId], references: [id], onDelete: Cascade)
+
+  @@index([referrerUserId, createdAt])
+  @@index([referredUserId, createdAt])
+}
+
+model RemnawaveUserAccount {
+  id                   Int             @id @default(autoincrement())
+  telegramUserId       Int
+  purchaseOrderId      String?         @unique
+  remnawaveUuid        String          @unique @db.Uuid
+  username             String          @unique
+  subscriptionUrl      String?
+  expireAt             DateTime
+  lastObservedUsedBytes BigInt         @default(0)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  telegramUser         TelegramUser    @relation(fields: [telegramUserId], references: [id], onDelete: Cascade)
+  purchaseOrder        PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  squadQuotas          UserSquadQuota[]
+
+  @@index([telegramUserId, updatedAt])
+}
+
+model UserSquadQuota {
+  id                    Int                   @id @default(autoincrement())
+  remnawaveAccountId    Int
+  purchaseOrderId       String
+  squadUuid             String                @db.Uuid
+  grantedTrafficBytes   BigInt
+  consumedTrafficBytes  BigInt                @default(0)
+  expiresAt             DateTime
+  exhaustedAt           DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  remnawaveAccount      RemnawaveUserAccount  @relation(fields: [remnawaveAccountId], references: [id], onDelete: Cascade)
+  purchaseOrder         PurchaseOrder         @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  squad                 RemnawaveInternalSquad @relation(fields: [squadUuid], references: [uuid], onDelete: Restrict)
+
+  @@index([remnawaveAccountId, expiresAt])
+  @@index([purchaseOrderId])
+}
+
+model TariffSquad {
+  id                     Int                   @id @default(autoincrement())
+  tariffId               Int
+  squadUuid              String                @db.Uuid
+  displayName            String?
+  trafficIncludedGbPerDay Int                 @default(0)
+  trafficPricePerGbMinor Int                  @default(0)
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  tariff                 Tariff                @relation(fields: [tariffId], references: [id], onDelete: Cascade)
+  squad                  RemnawaveInternalSquad @relation(fields: [squadUuid], references: [uuid], onDelete: Restrict)
+
+  @@unique([tariffId, squadUuid])
+}

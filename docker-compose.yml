@@ -1,0 +1,167 @@
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: orbit-escape-caddy
+    restart: unless-stopped
+    depends_on:
+      - bot
+      - remnawave
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - orbit-escape-network
+
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: orbit-escape-bot
+    restart: unless-stopped
+    env_file:
+      - ./bot/.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@bot-db:5432/orbit_escape_bot?schema=public
+    depends_on:
+      bot-db:
+        condition: service_healthy
+    expose:
+      - "8080"
+    networks:
+      - orbit-escape-network
+
+  bot-db:
+    image: postgres:17.6
+    container_name: orbit-escape-bot-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orbit_escape_bot
+      TZ: UTC
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - bot-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orbit_escape_bot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - orbit-escape-network
+
+  remnawave:
+    image: remnawave/backend:2
+    container_name: remnawave
+    hostname: remnawave
+    restart: unless-stopped
+    env_file:
+      - ./remnawave/.env
+    depends_on:
+      remnawave-db:
+        condition: service_healthy
+      remnawave-redis:
+        condition: service_healthy
+    volumes:
+      - valkey-socket:/var/run/valkey
+    expose:
+      - "3000"
+      - "3001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${METRICS_PORT:-3001}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    networks:
+      - orbit-escape-network
+
+  remnawave-subscription-page:
+    image: remnawave/subscription-page:latest
+    container_name: remnawave-subscription-page
+    hostname: remnawave-subscription-page
+    restart: unless-stopped
+    env_file:
+      - ./remnawave/subscription/.env
+    depends_on:
+      remnawave:
+        condition: service_started
+    expose:
+      - "3010"
+    networks:
+      - orbit-escape-network
+
+  remnawave-db:
+    image: postgres:17.6
+    container_name: remnawave-db
+    hostname: remnawave-db
+    restart: unless-stopped
+    env_file:
+      - ./remnawave/.env
+    environment:
+      TZ: UTC
+    ports:
+      - "127.0.0.1:6767:5432"
+    volumes:
+      - remnawave-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 10s
+      retries: 3
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    networks:
+      - orbit-escape-network
+
+  remnawave-redis:
+    image: valkey/valkey:9-alpine
+    container_name: remnawave-redis
+    hostname: remnawave-redis
+    restart: unless-stopped
+    volumes:
+      - valkey-socket:/var/run/valkey
+    command: >
+      valkey-server
+      --save ""
+      --appendonly no
+      --maxmemory-policy noeviction
+      --loglevel warning
+      --unixsocket /var/run/valkey/valkey.sock
+      --unixsocketperm 777
+      --port 0
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-s", "/var/run/valkey/valkey.sock", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 3
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
+    networks:
+      - orbit-escape-network
+
+networks:
+  orbit-escape-network:
+    name: orbit-escape-network
+    driver: bridge
+
+volumes:
+  bot-db-data:
+  remnawave-db-data:
+  valkey-socket:
+  caddy-data:
+  caddy-config:

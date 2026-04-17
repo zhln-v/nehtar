@@ -1,0 +1,34 @@
+{
+  "name": "orbit-escape-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch run src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "bun build ./src/index.ts --outdir dist --target bun",
+    "typecheck": "bun run ./node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
+    "prisma:generate": "bun ./node_modules/prisma/build/index.js generate",
+    "prisma:migrate": "bun ./node_modules/prisma/build/index.js migrate dev",
+    "prisma:push": "bun ./node_modules/prisma/build/index.js db push"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.7.0",
+    "@prisma/client": "7.7.0",
+    "dotenv": "^16.6.1",
+    "grammy": "^1.38.2",
+    "pg": "^8.20.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "@types/pg": "^8.15.5",
+    "prisma": "7.7.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "bun": ">=1.3.10",
+    "node": ">=24.0.0 <25"
+  },
+  "packageManager": "bun@1.3.10"
+}
