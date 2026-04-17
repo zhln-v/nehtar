@@ -228,6 +228,27 @@ async function updateRemnawaveUser(payload: {
   return parseRemnawaveUser(await response.json());
 }
 
+async function revokeRemnawaveUserSubscription(payload: {
+  uuid: string;
+  shortUuid?: string;
+}) {
+  const { requestUrl, init } = buildRemnawaveRequest(
+    `/api/users/${payload.uuid}/actions/revoke`,
+    "POST",
+    {
+      revokeOnlyPasswords: false,
+      ...(payload.shortUuid ? { shortUuid: payload.shortUuid } : {}),
+    },
+  );
+  const response = await fetch(requestUrl, init);
+
+  if (!response.ok) {
+    throw new Error(`Remnawave user subscription revoke failed: ${response.status}`);
+  }
+
+  return parseRemnawaveUser(await response.json());
+}
+
 async function upsertLocalRemnawaveAccount(params: {
   telegramUserId: number;
   purchaseOrderId: string;
@@ -607,6 +628,42 @@ export async function getUserRemnawaveAccountById(
       },
     },
   });
+}
+
+export async function getRemnawaveAccountById(accountId: number) {
+  return prisma.remnawaveUserAccount.findUnique({
+    where: {
+      id: accountId,
+    },
+  });
+}
+
+export async function reissueRemnawaveSubscriptionLink(accountId: number) {
+  const account = await getRemnawaveAccountById(accountId);
+
+  if (!account) {
+    return null;
+  }
+
+  const updatedUser = await revokeRemnawaveUserSubscription({
+    uuid: account.remnawaveUuid,
+  });
+
+  const updatedAccount = await prisma.remnawaveUserAccount.update({
+    where: {
+      id: account.id,
+    },
+    data: {
+      username: updatedUser.username,
+      subscriptionUrl: updatedUser.subscriptionUrl,
+      expireAt: new Date(updatedUser.expireAt),
+    },
+  });
+
+  return {
+    account: updatedAccount,
+    remnawaveUser: updatedUser,
+  };
 }
 
 export async function getRemnawaveUserDeviceState(remnawaveUuid: string) {

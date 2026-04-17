@@ -12,6 +12,7 @@ const envSchema = z.object({
   WEBHOOK_PATH: z.string().default("/telegram/webhook"),
   WEBHOOK_PUBLIC_URL: z.string().default(""),
   WEBHOOK_SECRET_TOKEN: z.string().default(""),
+  BOT_INTERNAL_API_TOKEN: z.string().default(""),
   ADMIN_TELEGRAM_IDS: z.string().default(""),
   REMNAWAVE_API_URL: z.string().default("http://remnawave.localhost:8080"),
   REMNAWAVE_API_TOKEN: z.string().default(""),
