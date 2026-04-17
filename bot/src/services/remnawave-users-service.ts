@@ -34,12 +34,12 @@ const remnawaveUserResponseSchema = z.object({
 
 const remnawaveHwidDeviceSchema = z.object({
   hwid: z.string(),
-  userId: z.number(),
-  platform: z.string().nullable(),
-  osVersion: z.string().nullable(),
-  deviceModel: z.string().nullable(),
-  userAgent: z.string().nullable(),
-  requestIp: z.string().nullable(),
+  userId: z.number().nullish(),
+  platform: z.string().nullish(),
+  osVersion: z.string().nullish(),
+  deviceModel: z.string().nullish(),
+  userAgent: z.string().nullish(),
+  requestIp: z.string().nullish(),
   createdAt: z.string().datetime().transform((value) => new Date(value)),
   updatedAt: z.string().datetime().transform((value) => new Date(value)),
 });
