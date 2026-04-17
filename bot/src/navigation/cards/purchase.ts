@@ -118,7 +118,7 @@ function buildSubscriptionDevicesKeyboard(
     keyboard
       .text(
         { text: `✅ ${index + 1}. ${deviceTitle}`, style: "success" },
-        `mysub:device_stub:${subscription.id}:${index + 1}`,
+        `mysub:device:${subscription.id}:${index + 1}`,
       )
       .row();
   });
@@ -136,7 +136,7 @@ function buildSubscriptionDevicesKeyboard(
     keyboard
       .text(
         { text: `➕ Подключить устройство ${slotNumber}`, style: "primary" },
-        `mysub:device_stub:${subscription.id}:${slotNumber}`,
+        `mysub:device_connect_slot:${subscription.id}:${slotNumber}`,
       )
       .row();
   }
@@ -218,6 +218,42 @@ export function renderSubscriptionDevicesScreen(
       ],
     }),
     replyMarkup: buildSubscriptionDevicesKeyboard(subscription, connectedDevices, deviceLimit),
+  };
+}
+
+export function renderSubscriptionDeviceScreen(
+  subscription: UserRemnawaveAccount,
+  device: RemnawaveHwidDevice,
+  deviceIndex: number,
+): RenderedScreen {
+  const deviceTitle =
+    device.deviceModel ?? device.platform ?? `Устройство ${deviceIndex}`;
+  const platform =
+    [device.platform, device.osVersion].filter(Boolean).join(" ") || "не определена";
+
+  return {
+    text: renderScreenLayout(`📱 ${deviceTitle}`, {
+      summary: [
+        renderCodeLine("Слот", deviceIndex),
+        renderPlainLine("Платформа", platform),
+        renderCodeLine("HWID", device.hwid),
+      ],
+      sections: [
+        renderSection("ℹ️ Детали устройства", [
+          renderPlainLine("Модель", device.deviceModel || "не определена"),
+          renderPlainLine("IP", device.requestIp || "не определен"),
+          renderPlainLine("User-Agent", device.userAgent || "не определен"),
+          renderCodeLine("Добавлено", renderDate(device.createdAt)),
+          renderCodeLine("Обновлено", renderDate(device.updatedAt)),
+          ...(device.userId == null ? [] : [renderCodeLine("ID пользователя Remnawave", device.userId)]),
+        ]),
+      ],
+      nextStep: [
+        "Вернись назад, чтобы открыть другой слот устройства или подключить новое устройство.",
+      ],
+    }),
+    replyMarkup: new InlineKeyboard()
+      .text({ text: BACK_BUTTON_TEXT, style: "danger" }, `mysub:devices:${subscription.id}`),
   };
 }
 

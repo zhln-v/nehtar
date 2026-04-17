@@ -16,6 +16,7 @@ import {
   renderPurchaseCheckoutScreen,
   renderPurchaseTariffScreen,
   renderPurchaseTermsScreen,
+  renderSubscriptionDeviceScreen,
   renderSubscriptionDevicePurchaseScreen,
   renderSubscriptionDevicesScreen,
   renderUserSubscriptionScreen,
@@ -1275,9 +1276,84 @@ export function registerPurchaseHandlers(bot: Bot) {
     await safeAnswerCallbackQuery(ctx);
   });
 
+  bot.callbackQuery(/^mysub:device:(\d+):(\d+)$/, async (ctx) => {
+    const user = await getTelegramUserByTelegramId(BigInt(ctx.from.id));
+
+    if (!user) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Пользователь не найден",
+        show_alert: false,
+      });
+      return;
+    }
+
+    const subscription = await getUserRemnawaveAccountById(
+      user.id,
+      Number(ctx.match[1]),
+    );
+
+    if (!subscription) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Подписка не найдена",
+        show_alert: false,
+      });
+      return;
+    }
+
+    const deviceState = await getRemnawaveUserDeviceState(subscription.remnawaveUuid);
+    const deviceIndex = Number(ctx.match[2]);
+    const device = deviceState.devices[deviceIndex - 1];
+
+    if (!device || deviceIndex > deviceState.deviceLimit) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Устройство не найдено",
+        show_alert: false,
+      });
+      return;
+    }
+
+    await showRenderedScreenFromCallback(
+      ctx,
+      renderSubscriptionDeviceScreen(subscription, device, deviceIndex),
+    );
+    await safeAnswerCallbackQuery(ctx);
+  });
+
+  bot.callbackQuery(/^mysub:device_connect_slot:(\d+):(\d+)$/, async (ctx) => {
+    const user = await getTelegramUserByTelegramId(BigInt(ctx.from.id));
+
+    if (!user) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Пользователь не найден",
+        show_alert: false,
+      });
+      return;
+    }
+
+    const subscription = await getUserRemnawaveAccountById(
+      user.id,
+      Number(ctx.match[1]),
+    );
+
+    if (!subscription) {
+      await safeAnswerCallbackQuery(ctx, {
+        text: "Подписка не найдена",
+        show_alert: false,
+      });
+      return;
+    }
+
+    await safeAnswerCallbackQuery(ctx, {
+      text: subscription.subscriptionUrl
+        ? `Открой ссылку подключения и привяжи устройство в слот ${ctx.match[2]}`
+        : "Ссылка подключения пока недоступна",
+      show_alert: false,
+    });
+  });
+
   bot.callbackQuery(/^mysub:device_stub:(\d+):(\d+)$/, async (ctx) => {
     await safeAnswerCallbackQuery(ctx, {
-      text: "Управление устройством появится позже",
+      text: "Экран устройства обнови до новой версии бота",
       show_alert: false,
     });
   });
